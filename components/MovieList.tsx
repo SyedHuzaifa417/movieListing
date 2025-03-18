@@ -29,13 +29,12 @@ export default function MovieList({
   searchQuery,
   genreFilter,
   ratingFilter,
-  refreshMovies, // Optional prop for external refresh control
+  refreshMovies,
 }: MovieListProps) {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch movies from API
   const fetchMovies = useCallback(async () => {
     try {
       setLoading(true);
@@ -65,7 +64,6 @@ export default function MovieList({
     fetchMovies();
   }, [fetchMovies]);
 
-  // Allow parent component to trigger refresh
   useEffect(() => {
     if (refreshMovies) {
       refreshMovies = fetchMovies;

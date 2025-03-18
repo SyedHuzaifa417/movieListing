@@ -38,7 +38,7 @@ const formSchema = z.object({
 interface MovieFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  refreshMovies: () => Promise<void>; // Ensures the parent list refreshes
+  refreshMovies: () => Promise<void>;
 }
 
 export default function MovieForm({
@@ -80,8 +80,8 @@ export default function MovieForm({
       });
 
       form.reset();
-      onOpenChange(false); // Close the modal
-      await refreshMovies(); // Refresh the movie list
+      onOpenChange(false);
+      await refreshMovies();
     } catch (error) {
       toast({
         title: "Error",
