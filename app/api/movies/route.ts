@@ -1,37 +1,22 @@
 import { NextResponse } from "next/server";
-import { sql } from "@vercel/postgres";
+import { getMovies, addMovie } from "@/lib/db";
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const search = searchParams.get("search") || "";
-  const genre = searchParams.get("genre") || "all";
-  const rating = searchParams.get("rating") || "all";
-
   try {
-    let query = `SELECT * FROM movies WHERE 1=1`;
-    const params: any[] = [];
+    console.log("GET /api/movies");
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search") || "";
+    const genre = searchParams.get("genre") || "all";
+    const rating = searchParams.get("rating") || "all";
 
-    if (search) {
-      params.push(`%${search}%`);
-      query += ` AND name ILIKE $${params.length}`;
-    }
+    console.log(`Search: ${search}, Genre: ${genre}, Rating: ${rating}`);
 
-    if (genre !== "all") {
-      params.push(genre);
-      query += ` AND genre = $${params.length}`;
-    }
+    const movies = await getMovies(search, genre, rating);
+    console.log(`Movies: ${JSON.stringify(movies)}`);
 
-    if (rating !== "all") {
-      params.push(rating);
-      query += ` AND rating >= $${params.length}`;
-    }
-
-    query += ` ORDER BY created_at DESC`;
-
-    const { rows } = await sql.query(query, params);
-    return NextResponse.json(rows);
+    return NextResponse.json(movies);
   } catch (error) {
-    console.error("Database Error:", error);
+    console.error("Error fetching movies:", error);
     return NextResponse.json(
       { error: "Failed to fetch movies" },
       { status: 500 }
@@ -39,27 +24,25 @@ export async function GET(request: Request) {
   }
 }
 
-// Add a new movie
 export async function POST(request: Request) {
   try {
-    const { name, genre, rating } = await request.json();
+    console.log("POST /api/movies");
+    const data = await request.json();
+    console.log(`Data: ${JSON.stringify(data)}`);
 
-    if (!name || !genre || !rating) {
+    if (!data.name || !data.genre || !data.rating) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    const { rows } = await sql`
-      INSERT INTO movies (name, genre, rating)
-      VALUES (${name}, ${genre}, ${rating})
-      RETURNING *;
-    `;
+    const movie = await addMovie(data.name, data.genre, data.rating);
+    console.log(`Movie: ${JSON.stringify(movie)}`);
 
-    return NextResponse.json(rows[0]);
+    return NextResponse.json(movie);
   } catch (error) {
-    console.error("Database Error:", error);
+    console.error("Error adding movie:", error);
     return NextResponse.json({ error: "Failed to add movie" }, { status: 500 });
   }
 }

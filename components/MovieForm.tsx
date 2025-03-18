@@ -35,13 +35,17 @@ const formSchema = z.object({
   rating: z.string().min(1, "Rating is required"),
 });
 
+interface MovieFormProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  refreshMovies: () => Promise<void>; // Ensures the parent list refreshes
+}
+
 export default function MovieForm({
   open,
   onOpenChange,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
+  refreshMovies,
+}: MovieFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -66,7 +70,6 @@ export default function MovieForm({
       });
 
       const data = await response.json();
-
       if (!response.ok) {
         throw new Error(data.error || "Failed to add movie");
       }
@@ -77,7 +80,8 @@ export default function MovieForm({
       });
 
       form.reset();
-      onOpenChange(false);
+      onOpenChange(false); // Close the modal
+      await refreshMovies(); // Refresh the movie list
     } catch (error) {
       toast({
         title: "Error",
@@ -92,9 +96,11 @@ export default function MovieForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
         <DialogHeader>
-          <DialogTitle>Add New Movie</DialogTitle>
+          <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+            Add New Movie
+          </DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -105,7 +111,11 @@ export default function MovieForm({
                 <FormItem>
                   <FormLabel>Movie Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter movie name" {...field} />
+                    <Input
+                      placeholder="Enter movie name"
+                      {...field}
+                      className="bg-white/50 dark:bg-gray-700/50 border-none focus:ring-2 focus:ring-indigo-500"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -122,7 +132,7 @@ export default function MovieForm({
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white/50 dark:bg-gray-700/50 border-none focus:ring-2 focus:ring-indigo-500">
                         <SelectValue placeholder="Select genre" />
                       </SelectTrigger>
                     </FormControl>
@@ -149,7 +159,7 @@ export default function MovieForm({
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white/50 dark:bg-gray-700/50 border-none focus:ring-2 focus:ring-indigo-500">
                         <SelectValue placeholder="Select rating" />
                       </SelectTrigger>
                     </FormControl>
@@ -159,13 +169,21 @@ export default function MovieForm({
                       <SelectItem value="3">3 Stars</SelectItem>
                       <SelectItem value="4">4 Stars</SelectItem>
                       <SelectItem value="5">5 Stars</SelectItem>
+                      <SelectItem value="6">6 Stars</SelectItem>
+                      <SelectItem value="7">7 Stars</SelectItem>
+                      <SelectItem value="8">8 Stars</SelectItem>
+                      <SelectItem value="9">9 Stars</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? "Adding..." : "Add Movie"}
             </Button>
           </form>

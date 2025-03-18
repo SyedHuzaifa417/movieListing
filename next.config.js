@@ -1,10 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
-  eslint: {
-    ignoreDuringBuilds: true,
+  reactStrictMode: true,
+  experimental: {
+    serverActions: true,
   },
-  images: { unoptimized: true },
+  env: {
+    POSTGRES_URL: process.env.POSTGRES_URL,
+  },
 };
 
 module.exports = nextConfig;
