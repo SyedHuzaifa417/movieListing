@@ -5,7 +5,7 @@ import { getUserByUsername } from "@/lib/db";
 import { compare } from "bcryptjs";
 
 export const dynamic = "force-dynamic";
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 const JWT_SECRET = process.env.JWT_SECRET || "";
 
