@@ -1,86 +1,149 @@
-import { Pool } from "pg";
+import { PrismaClient } from "@prisma/client";
 
-const pool = new Pool({
-  connectionString: process.env.POSTGRES_URL,
-});
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
-export async function query(text: string, params: any[] = []) {
-  try {
-    const start = Date.now();
-    const res = await pool.query(text, params);
-    const duration = Date.now() - start;
-    console.log("Executed query", { text, duration, rows: res.rowCount });
-    return res;
-  } catch (error) {
-    console.error("Error executing query:", error);
-    throw error;
-  }
+const prisma = globalForPrisma.prisma || new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+interface GetMoviesParams {
+  userId?: string | null;
+  search?: string;
+  genre?: string;
+  rating?: string;
 }
 
-export async function createMoviesTable() {
-  try {
-    await query(`
-      CREATE TABLE IF NOT EXISTS movies (
-        id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        genre TEXT NOT NULL,
-        rating TEXT NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    console.log("Movies table created successfully");
-  } catch (error) {
-    console.error("Error creating movies table:", error);
-    throw error;
-  }
+interface CreateMovieParams {
+  name: string;
+  genre: string;
+  rating: string;
+  userId: string;
 }
 
-export async function getMovies(search = "", genre = "all", rating = "all") {
-  try {
-    let queryText = "SELECT * FROM movies WHERE 1=1";
-    const values: any[] = [];
-    let valueIndex = 1;
-
-    if (search) {
-      queryText += ` AND name ILIKE $${valueIndex}`;
-      values.push(`%${search}%`);
-      valueIndex++;
-    }
-
-    if (genre !== "all") {
-      queryText += ` AND genre = $${valueIndex}`;
-      values.push(genre);
-      valueIndex++;
-    }
-
-    if (rating !== "all") {
-      queryText += ` AND rating >= $${valueIndex}`;
-      values.push(rating);
-      valueIndex++;
-    }
-
-    queryText += " ORDER BY created_at DESC";
-
-    console.log("Query:", queryText);
-    console.log("Values:", values);
-
-    const result = await query(queryText, values);
-    return result.rows;
-  } catch (error) {
-    console.error("Error fetching movies:", error);
-    throw error;
-  }
+// User functions
+export async function createUser(username: string, hashedPassword: string) {
+  return prisma.user.create({
+    data: {
+      username,
+      passwordHash: hashedPassword,
+    },
+  });
 }
 
-export async function addMovie(name: string, genre: string, rating: string) {
-  try {
-    const result = await query(
-      "INSERT INTO movies (name, genre, rating) VALUES ($1, $2, $3) RETURNING *",
-      [name, genre, rating]
-    );
-    return result.rows[0];
-  } catch (error) {
-    console.error("Error adding movie:", error);
-    throw error;
+export async function getUserByUsername(username: string) {
+  return prisma.user.findUnique({
+    where: {
+      username,
+    },
+  });
+}
+
+export async function getMovies({
+  userId = null,
+  search = "",
+  genre = "",
+  rating = "",
+}: GetMoviesParams) {
+  const where: any = {};
+
+  if (search) {
+    where.name = {
+      contains: search,
+      mode: "insensitive",
+    };
   }
+
+  if (genre) {
+    where.genre = {
+      equals: genre,
+      mode: "insensitive",
+    };
+  }
+
+  if (rating) {
+    where.rating = {
+      equals: rating,
+    };
+  }
+
+  if (userId) {
+    where.userId = userId;
+  }
+
+  const movies = await prisma.movie.findMany({
+    where,
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      user: {
+        select: {
+          username: true,
+        },
+      },
+    },
+  });
+
+  return movies;
+}
+
+export async function createMovie({
+  name,
+  genre,
+  rating,
+  userId,
+}: CreateMovieParams) {
+  return prisma.movie.create({
+    data: {
+      name,
+      genre,
+      rating,
+      userId,
+    },
+  });
+}
+
+export async function deleteMovie(id: string, userId: string) {
+  const movie = await prisma.movie.findFirst({
+    where: {
+      id,
+      userId,
+    },
+  });
+
+  if (!movie) {
+    throw new Error("Movie not found or not owned by user");
+  }
+
+  return prisma.movie.delete({
+    where: {
+      id,
+    },
+  });
+}
+
+export async function updateMovie(
+  id: string,
+  userId: string,
+  data: { name?: string; genre?: string; rating?: string }
+) {
+  const movie = await prisma.movie.findFirst({
+    where: {
+      id,
+      userId,
+    },
+  });
+
+  if (!movie) {
+    throw new Error("Movie not found or not owned by user");
+  }
+
+  return prisma.movie.update({
+    where: { id },
+    data: {
+      name: data.name || movie.name,
+      genre: data.genre || movie.genre,
+      rating: data.rating || movie.rating,
+    },
+  });
 }

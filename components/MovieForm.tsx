@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import * as z from "zod";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
@@ -19,6 +20,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -39,15 +41,18 @@ interface MovieFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   refreshMovies: () => Promise<void>;
+  isAuthenticated: boolean;
 }
 
 export default function MovieForm({
   open,
   onOpenChange,
   refreshMovies,
+  isAuthenticated,
 }: MovieFormProps) {
-  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -58,7 +63,18 @@ export default function MovieForm({
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to add movies",
+        variant: "destructive",
+      });
+      router.push("/login");
+      onOpenChange(false);
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       const response = await fetch("/api/movies", {
@@ -69,9 +85,20 @@ export default function MovieForm({
         body: JSON.stringify(values),
       });
 
-      const data = await response.json();
+      if (response.status === 401) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to add movies",
+          variant: "destructive",
+        });
+        router.push("/login");
+        onOpenChange(false);
+        return;
+      }
+
       if (!response.ok) {
-        throw new Error(data.error || "Failed to add movie");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to add movie");
       }
 
       toast({
@@ -81,8 +108,10 @@ export default function MovieForm({
 
       form.reset();
       onOpenChange(false);
+
       await refreshMovies();
     } catch (error) {
+      console.error("Error adding movie:", error);
       toast({
         title: "Error",
         description:
@@ -92,15 +121,18 @@ export default function MovieForm({
     } finally {
       setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+      <DialogContent className="sm:max-w-[425px] bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
-            Add New Movie
+          <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400">
+            Add Movie
           </DialogTitle>
+          <DialogDescription>
+            Add a new movie to your collection
+          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -114,7 +146,7 @@ export default function MovieForm({
                     <Input
                       placeholder="Enter movie name"
                       {...field}
-                      className="bg-white/50 dark:bg-gray-700/50 border-none focus:ring-2 focus:ring-indigo-500"
+                      className="bg-white/50 dark:bg-gray-700/50"
                     />
                   </FormControl>
                   <FormMessage />
@@ -132,16 +164,21 @@ export default function MovieForm({
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger className="bg-white/50 dark:bg-gray-700/50 border-none focus:ring-2 focus:ring-indigo-500">
-                        <SelectValue placeholder="Select genre" />
+                      <SelectTrigger className="bg-white/50 dark:bg-gray-700/50">
+                        <SelectValue placeholder="Select Genre" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="action">Action</SelectItem>
+                      <SelectItem value="adventure">Adventure</SelectItem>
                       <SelectItem value="comedy">Comedy</SelectItem>
                       <SelectItem value="drama">Drama</SelectItem>
+                      <SelectItem value="fantasy">Fantasy</SelectItem>
                       <SelectItem value="horror">Horror</SelectItem>
-                      <SelectItem value="scifi">Sci-Fi</SelectItem>
+                      <SelectItem value="mystery">Mystery</SelectItem>
+                      <SelectItem value="romance">Romance</SelectItem>
+                      <SelectItem value="sci-fi">Sci-Fi</SelectItem>
+                      <SelectItem value="thriller">Thriller</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -159,20 +196,16 @@ export default function MovieForm({
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger className="bg-white/50 dark:bg-gray-700/50 border-none focus:ring-2 focus:ring-indigo-500">
-                        <SelectValue placeholder="Select rating" />
+                      <SelectTrigger className="bg-white/50 dark:bg-gray-700/50">
+                        <SelectValue placeholder="Select Rating" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="1">1 Star</SelectItem>
-                      <SelectItem value="2">2 Stars</SelectItem>
-                      <SelectItem value="3">3 Stars</SelectItem>
-                      <SelectItem value="4">4 Stars</SelectItem>
-                      <SelectItem value="5">5 Stars</SelectItem>
-                      <SelectItem value="6">6 Stars</SelectItem>
-                      <SelectItem value="7">7 Stars</SelectItem>
-                      <SelectItem value="8">8 Stars</SelectItem>
-                      <SelectItem value="9">9 Stars</SelectItem>
+                      {[...Array(9)].map((_, i) => (
+                        <SelectItem key={i + 1} value={(i + 1).toString()}>
+                          {i + 1} {i === 0 ? "Star" : "Stars"}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
