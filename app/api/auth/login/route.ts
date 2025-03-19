@@ -5,6 +5,9 @@ import { getUserByUsername } from "@/lib/db";
 import { compare } from "bcryptjs";
 
 export const dynamic = "force-dynamic";
+export const runtime = "edge";
+
+const JWT_SECRET = process.env.JWT_SECRET || "";
 
 export async function GET() {
   return NextResponse.json({ message: "Login endpoint" }, { status: 200 });
@@ -12,9 +15,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const JWT_SECRET = process.env.JWT_SECRET;
     if (!JWT_SECRET) {
-      throw new Error("JWT_SECRET environment variable is not set");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
     }
 
     const { username, password } = await request.json();
