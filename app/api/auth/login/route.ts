@@ -1,22 +1,15 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { sign } from "jsonwebtoken";
 import { getUserByUsername } from "@/lib/db";
 import { compare } from "bcryptjs";
+import { sign } from "jsonwebtoken";
 
-// Simple exports for route configuration
-export const dynamic = "auto";
-export const fetchCache = "default-no-store";
+// App Router specific configuration
+export const dynamic = "force-dynamic";
 
-// Simple GET handler
 export async function GET() {
-  return new Response(JSON.stringify({ message: "Login API route" }), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
+  return NextResponse.json({ message: "Login API endpoint" });
 }
 
-// Simplified POST handler
 export async function POST(request: Request) {
   try {
     // Parse the request body
@@ -25,27 +18,27 @@ export async function POST(request: Request) {
 
     // Basic validation
     if (!username || !password) {
-      return new Response(
-        JSON.stringify({ error: "Username and password are required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+      return NextResponse.json(
+        { error: "Username and password are required" },
+        { status: 400 }
       );
     }
 
     // Get user
     const user = await getUserByUsername(username);
     if (!user) {
-      return new Response(
-        JSON.stringify({ error: "Invalid username or password" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+      return NextResponse.json(
+        { error: "Invalid username or password" },
+        { status: 401 }
       );
     }
 
     // Verify password
     const passwordValid = await compare(password, user.passwordHash);
     if (!passwordValid) {
-      return new Response(
-        JSON.stringify({ error: "Invalid username or password" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
+      return NextResponse.json(
+        { error: "Invalid username or password" },
+        { status: 401 }
       );
     }
 
@@ -55,34 +48,33 @@ export async function POST(request: Request) {
       expiresIn: "7d",
     });
 
-    // Create response
-    const response = new Response(
-      JSON.stringify({
-        message: "Logged in successfully",
-        username: user.username,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
+    // Create response with cookies
+    const response = NextResponse.json({
+      message: "Logged in successfully",
+      username: user.username,
+    });
 
-    // Set cookies manually
-    const cookieOptions = `HttpOnly; Path=/; Max-Age=${
-      7 * 24 * 60 * 60
-    }; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+    // Set cookies using NextResponse
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60,
+    });
 
-    response.headers.set("Set-Cookie", `token=${token}; ${cookieOptions}`);
-    response.headers.append(
-      "Set-Cookie",
-      `auth_state=true; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax${
-        process.env.NODE_ENV === "production" ? "; Secure" : ""
-      }`
-    );
+    response.cookies.set("auth_state", "true", {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60,
+    });
 
     return response;
   } catch (error) {
     console.error("Login error:", error);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
