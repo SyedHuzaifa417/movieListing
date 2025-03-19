@@ -3,8 +3,14 @@ import { getUserByUsername } from "@/lib/db";
 import { compare } from "bcryptjs";
 import { sign } from "jsonwebtoken";
 
-// App Router specific configuration
+// App Router specific configuration - make sure Vercel doesn't try to statically optimize this route
 export const dynamic = "force-dynamic";
+
+// Prevent response caching
+export const fetchCache = "force-no-store";
+
+// Remove default ISR behavior
+export const revalidate = 0;
 
 export async function GET() {
   return NextResponse.json({ message: "Login API endpoint" });
@@ -41,7 +47,15 @@ export async function POST(request: Request) {
     }
 
     // Create token
-    const secret = process.env.JWT_SECRET || "fallback-secret-for-dev-only";
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error("JWT_SECRET is not defined in environment variables");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+
     const token = sign({ userId: user.id, username: user.username }, secret, {
       expiresIn: "7d",
     });
