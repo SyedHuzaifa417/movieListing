@@ -24,7 +24,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get user
     const user = await getUserByUsername(username);
     if (!user) {
       return NextResponse.json(
@@ -33,7 +32,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify password
     const passwordValid = await compare(password, user.passwordHash);
     if (!passwordValid) {
       return NextResponse.json(

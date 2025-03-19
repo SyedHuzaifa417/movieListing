@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    serverActions: true,
+    excludeDefaultMappings: ["/api/auth/login"],
   },
   env: {
     POSTGRES_URL: process.env.POSTGRES_URL,
