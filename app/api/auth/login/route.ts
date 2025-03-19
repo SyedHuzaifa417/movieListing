@@ -4,85 +4,85 @@ import { sign } from "jsonwebtoken";
 import { getUserByUsername } from "@/lib/db";
 import { compare } from "bcryptjs";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+// Simple exports for route configuration
+export const dynamic = "auto";
+export const fetchCache = "default-no-store";
 
-const JWT_SECRET = process.env.JWT_SECRET || "";
-
+// Simple GET handler
 export async function GET() {
-  return NextResponse.json({ message: "Login endpoint" }, { status: 200 });
+  return new Response(JSON.stringify({ message: "Login API route" }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
+// Simplified POST handler
 export async function POST(request: Request) {
   try {
-    if (!JWT_SECRET) {
-      return NextResponse.json(
-        { error: "Server configuration error" },
-        { status: 500 }
-      );
-    }
+    // Parse the request body
+    const body = await request.json();
+    const { username, password } = body;
 
-    const { username, password } = await request.json();
-
+    // Basic validation
     if (!username || !password) {
-      return NextResponse.json(
-        { error: "Username and password are required" },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: "Username and password are required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
+    // Get user
     const user = await getUserByUsername(username);
-
     if (!user) {
-      return NextResponse.json(
-        { error: "Invalid username or password" },
-        { status: 401 }
+      return new Response(
+        JSON.stringify({ error: "Invalid username or password" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const isValidPassword = await compare(password, user.passwordHash);
-
-    if (!isValidPassword) {
-      return NextResponse.json(
-        { error: "Invalid username or password" },
-        { status: 401 }
+    // Verify password
+    const passwordValid = await compare(password, user.passwordHash);
+    if (!passwordValid) {
+      return new Response(
+        JSON.stringify({ error: "Invalid username or password" }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const token = sign(
-      { userId: user.id, username: user.username },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    // Create token
+    const secret = process.env.JWT_SECRET || "fallback-secret-for-dev-only";
+    const token = sign({ userId: user.id, username: user.username }, secret, {
+      expiresIn: "7d",
+    });
 
-    const response = NextResponse.json(
-      {
+    // Create response
+    const response = new Response(
+      JSON.stringify({
         message: "Logged in successfully",
         username: user.username,
-      },
-      { status: 200 }
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
     );
 
-    response.cookies.set("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
-    });
+    // Set cookies manually
+    const cookieOptions = `HttpOnly; Path=/; Max-Age=${
+      7 * 24 * 60 * 60
+    }; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 
-    response.cookies.set("auth_state", "true", {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
-    });
+    response.headers.set("Set-Cookie", `token=${token}; ${cookieOptions}`);
+    response.headers.append(
+      "Set-Cookie",
+      `auth_state=true; Path=/; Max-Age=${7 * 24 * 60 * 60}; SameSite=Lax${
+        process.env.NODE_ENV === "production" ? "; Secure" : ""
+      }`
+    );
 
     return response;
   } catch (error) {
     console.error("Login error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
