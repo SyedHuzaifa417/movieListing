@@ -6,6 +6,10 @@ import { compare } from "bcryptjs";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
 
+export async function GET() {
+  return NextResponse.json({ message: "Login endpoint" }, { status: 200 });
+}
+
 export async function POST(request: Request) {
   try {
     const { username, password } = await request.json();
